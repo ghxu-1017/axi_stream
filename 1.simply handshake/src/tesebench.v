@@ -5,8 +5,8 @@ reg                              clk            ;
 reg                              rstn           ;
 
 // Width of S_AXIS address bus. The slave accepts the read and write addresses of width C_M_AXIS_TDATA_WIDTH.
-parameter  C_M_AXIS_TDATA_WIDTH	= 32;
-parameter  C_S_AXIS_TDATA_WIDTH  =  32;
+parameter  C_M_AXIS_TDATA_WIDTH	= 8;
+parameter  C_S_AXIS_TDATA_WIDTH  =  8;
 parameter NUMBER_OF_OUTPUT_WORDS = 20;       
 parameter T = 20;
 // Master Stream Ports. 
@@ -19,9 +19,10 @@ reg  S_AXIS_TREADY;
 wire [C_M_AXIS_TDATA_WIDTH-1 : 0] S_AXIS_TDATA;
 wire S_AXIS_TVALID;
 
-integer i  ;
-
-reg [31:0] tdata[NUMBER_OF_OUTPUT_WORDS-1:0] ;
+integer i ;
+integer j ;
+integer k ;
+reg [7:0] tdata[NUMBER_OF_OUTPUT_WORDS-1:0] ;
 
 
 initial begin
@@ -39,7 +40,7 @@ initial begin
     repeat(10) @(posedge clk);
     rstn = 1;
     repeat(20) @(posedge clk);
-    #1000;
+    #10000;
     
     //$fclose(fcols1);
     $finish;
@@ -52,7 +53,7 @@ always @(negedge rstn)
 begin
     M_AXIS_TVALID <= 0;
     M_AXIS_TDATA  <= 0;
-    S_AXIS_TREADY <= 1;
+    S_AXIS_TREADY <= 0;
     for(i = 0; i<NUMBER_OF_OUTPUT_WORDS;i = i + 1)
         tdata[i]  <= i;
     
@@ -61,22 +62,43 @@ end
 
 initial begin
     @(posedge rstn)
-    for(i = 0; i<NUMBER_OF_OUTPUT_WORDS;i = i + 1)
+    for(k = 0; k<8;k = k + 1)
     begin
-         @(posedge clk) M_AXIS_TVALID <= 1;
-                M_AXIS_TDATA <= tdata[i];  
-         @(posedge clk);
-         while(M_AXIS_TVALID) 
-         begin
+        @(posedge clk) M_AXIS_TVALID <= 1; 
+        M_AXIS_TDATA <= tdata[0];
+        j = 0;
+        while(j<=18)
+        begin
+            @(negedge clk);
             if(M_AXIS_TREADY)
-                 M_AXIS_TVALID <= 0;;   
+            begin
+                j = j + 1;
+                @(posedge clk)
+                M_AXIS_TDATA <= tdata[j];
+                if(j>=19)
+                M_AXIS_TVALID = 0; 
+            end
             @(posedge clk);
-         end                          
+        end
+        @(posedge clk);
+        @(posedge clk);
     end
-    @(posedge clk);
+
+
 end
 
-
+initial begin
+    forever begin
+        @(negedge clk);
+        if(S_AXIS_TVALID)
+        begin
+             @(posedge clk);
+             S_AXIS_TREADY <= 1;
+             @(posedge clk);
+             S_AXIS_TREADY <= 0;
+        end
+    end
+end
 
 
 interface #
